@@ -148,10 +148,6 @@
             font-weight: 500;
         }
         
-        [data-fs-success]:not(:empty) {
-            display: block;
-        }
-        
         .attendee {
             padding: 1rem;
             background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
@@ -282,10 +278,9 @@
         const listDiv = document.getElementById('list');
         const countSpan = document.getElementById('count');
 
-        // Parse CSV data from Formspree submissions
-        async function loadAttendees() {
+        // Removed "async" keyword here
+        function loadAttendees() {
             try {
-                // Formspree doesn't expose data directly, so we'll use localStorage to track submissions
                 const data = localStorage.getItem('formspree-submissions');
                 return data ? JSON.parse(data) : [];
             } catch (e) {
