@@ -126,17 +126,6 @@
             cursor: not-allowed;
         }
         
-        [data-fs-error] {
-            color: #d32f2f;
-            font-size: 13px;
-            margin-top: 4px;
-            display: none;
-        }
-        
-        [data-fs-error]:not(:empty) {
-            display: block;
-        }
-        
         [data-fs-success] {
             padding: 1rem;
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
@@ -238,13 +227,12 @@
             <form id="my-form">
                 <div class="form-group">
                     <label for="name">Your name *</label>
-                    <input type="text" id="name" name="name" placeholder="Enter your name" data-fs-field required>
-                    <span data-fs-error="name"></span>
+                    <input type="text" id="name" name="name" placeholder="Enter your name" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="status">Are you coming?</label>
-                    <select id="status" name="status" data-fs-field>
+                    <select id="status" name="status">
                         <option value="yes">Yes, I'm coming!</option>
                         <option value="maybe">Maybe, I'll let you know</option>
                         <option value="no">No, can't make it</option>
@@ -253,12 +241,11 @@
                 
                 <div class="form-group">
                     <label for="dietary">Dietary preferences (optional)</label>
-                    <input type="text" id="dietary" name="dietary" placeholder="E.g., vegetarian, allergies" data-fs-field>
+                    <input type="text" id="dietary" name="dietary" placeholder="E.g., vegetarian, allergies">
                 </div>
                 
                 <button type="submit" data-fs-submit-btn>Submit RSVP</button>
                 <div data-fs-success>✓ Thanks for RSVPing!</div>
-                <div data-fs-error></div>
             </form>
         </div>
 
@@ -268,40 +255,73 @@
         </div>
     </div>
 
-    <script>
-        window.formspree = window.formspree || function () { (formspree.q = formspree.q || []).push(arguments); };
-        formspree('initForm', { formElement: '#my-form', formId: 'xeewqlze' });
-    </script>
-    <script src="https://unpkg.com/@formspree/ajax@1" defer></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    <script>
+        // Your exact Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJPBvZxGQRqMAddA5O7FbK1AgYSK6Vej0",
+            authDomain: "rsvp-f3768.firebaseapp.com",
+            projectId: "rsvp-f3768",
+            storageBucket: "rsvp-f3768.firebasestorage.app",
+            messagingSenderId: "41629389035",
+            appId: "1:41629389035:web:fa15f38fdef566af5c6eae"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
         const listDiv = document.getElementById('list');
         const countSpan = document.getElementById('count');
 
-        // Removed "async" keyword here
-        function loadAttendees() {
-            try {
-                const data = localStorage.getItem('formspree-submissions');
-                return data ? JSON.parse(data) : [];
-            } catch (e) {
-                console.error('Error loading attendees:', e);
-                return [];
+        // 1. Handle Form Submission
+        document.getElementById('my-form').addEventListener('submit', async function(e) {
+            e.preventDefault(); 
+            
+            const name = document.getElementById('name').value.trim();
+            const status = document.getElementById('status').value;
+            const dietary = document.getElementById('dietary').value.trim();
+            const submitBtn = document.querySelector('[data-fs-submit-btn]');
+            const successMsg = document.querySelector('[data-fs-success]');
+
+            if (name) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Sending...";
+
+                try {
+                    await addDoc(collection(db, "rsvps"), {
+                        name: name,
+                        status: status,
+                        dietary: dietary,
+                        timestamp: serverTimestamp() // Uses Firebase's server time for perfect ordering
+                    });
+                    
+                    successMsg.style.display = "block";
+                    document.getElementById('my-form').reset();
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Submit RSVP";
+                    
+                    setTimeout(() => { successMsg.style.display = "none"; }, 3000);
+                } catch (error) {
+                    console.error("Error adding document: ", error);
+                    alert("Something went wrong. Please check your console.");
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Submit RSVP";
+                }
             }
-        }
+        });
 
-        function saveToLocal(name, status, dietary) {
-            const submissions = loadAttendees();
-            submissions.push({
-                name: name,
-                status: status,
-                dietary: dietary,
-                timestamp: new Date().toLocaleString()
+        // 2. Listen for Live Updates
+        const q = query(collection(db, "rsvps"), orderBy("timestamp", "asc"));
+        
+        onSnapshot(q, (snapshot) => {
+            const attendees = [];
+            snapshot.forEach((doc) => {
+                attendees.push(doc.data());
             });
-            localStorage.setItem('formspree-submissions', JSON.stringify(submissions));
-        }
 
-        function displayAttendees() {
-            const attendees = loadAttendees();
             const yes = attendees.filter(a => a.status === 'yes');
             const maybe = attendees.filter(a => a.status === 'maybe');
 
@@ -338,25 +358,7 @@
             }
 
             listDiv.innerHTML = html;
-        }
-
-        // Capture form submission and save to localStorage
-        document.getElementById('my-form').addEventListener('submit', function(e) {
-            const name = document.getElementById('name').value.trim();
-            const status = document.getElementById('status').value;
-            const dietary = document.getElementById('dietary').value.trim();
-
-            if (name) {
-                saveToLocal(name, status, dietary);
-                setTimeout(displayAttendees, 500);
-            }
         });
-
-        // Initial display
-        displayAttendees();
-        
-        // Refresh every 3 seconds to catch new submissions
-        setInterval(displayAttendees, 3000);
     </script>
 </body>
 </html>
